@@ -6873,23 +6873,11 @@ ENUMDOC
 ENUM
   BFD_RELOC_MICROBLAZE_64_NONE
 ENUMDOC
-  This is a 32 bit reloc that stores the 32 bit pc relative
-  value in two words (with an imml instruction).  No relocation is
-  done here - only used for relaxing
-ENUM
-  BFD_RELOC_MICROBLAZE_64
-ENUMDOC
   This is a 64 bit reloc that stores the 32 bit pc relative
   value in two words (with an imm instruction).  No relocation is
   done here - only used for relaxing
 ENUM
   BFD_RELOC_MICROBLAZE_64_GOTPC
-ENUMDOC
-  This is a 64 bit reloc that stores the 32 bit pc relative
-  value in two words (with an imml instruction).  No relocation is
-  done here - only used for relaxing
-ENUM
-  BFD_RELOC_MICROBLAZE_64_GPC
 ENUMDOC
   This is a 64 bit reloc that stores the 32 bit pc relative
   value in two words (with an imm instruction).  The relocation is
@@ -6975,6 +6963,20 @@ ENUMDOC
   value in two words (with an imm instruction).  The relocation is
   relative offset from start of TEXT.
 
+  This is a 64 bit reloc that stores 64-bit thread pointer relative offset
+  to two words (uses imml instruction).
+ENUM
+BFD_RELOC_MICROBLAZE_64,
+ENUMDOC
+ This is a 64 bit reloc that stores the 64 bit pc relative
+ value in two words (with an imml instruction).  No relocation is
+ done here - only used for relaxing
+ENUM
+BFD_RELOC_MICROBLAZE_64_PCREL,
+ENUMDOC
+ This is a 32 bit reloc that stores the 32 bit pc relative
+ value in two words (with an imml instruction).  No relocation is
+ done here - only used for relaxing
 ENUM
   BFD_RELOC_AARCH64_RELOC_START
 ENUMDOC
