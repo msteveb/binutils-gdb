@@ -568,6 +568,7 @@ BFD64_BACKENDS = \
 	elf64-riscv.lo \
 	elfxx-riscv.lo \
 	elf64-s390.lo \
+	elf64-microblaze.lo \
 	elf64-sparc.lo \
 	elf64-tilegx.lo \
 	elf64-x86-64.lo \
@@ -601,6 +602,7 @@ BFD64_BACKENDS_CFILES = \
 	elf64-nfp.c \
 	elf64-ppc.c \
 	elf64-s390.c \
+	elf64-microblaze.c \
 	elf64-sparc.c \
 	elf64-tilegx.c \
 	elf64-x86-64.c \

@@ -339,6 +339,7 @@
 #define EM_RISCV 	243 	/* RISC-V */
 #define EM_LANAI	244	/* Lanai 32-bit processor.  */
 #define EM_BPF		247	/* Linux BPF – in-kernel virtual machine.  */
+#define EM_MB_64	248	/* Xilinx MicroBlaze 32-bit RISC soft processor core */
 #define EM_NFP		250	/* Netronome Flow Processor.  */
 
 /* If it is necessary to assign new unofficial EM_* values, please pick large

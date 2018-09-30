@@ -23,7 +23,24 @@
 #include "bfd.h"
 #include "libbfd.h"
 
-const bfd_arch_info_type bfd_microblaze_arch =
+const bfd_arch_info_type bfd_microblaze_arch[] =
+{
+#if BFD_DEFAULT_TARGET_SIZE == 64
+{
+  64,		  		/* 32 bits in a word.  */
+  64,		  		/* 32 bits in an address.  */
+  8,		  		/* 8 bits in a byte.  */
+  bfd_arch_microblaze, 		/* Architecture.  */
+  0,		  		/* Machine number - 0 for now.  */
+  "microblaze",	  		/* Architecture name.  */
+  "MicroBlaze",	  		/* Printable name.  */
+  3,		  		/* Section align power.  */
+  FALSE,		  		/* Is this the default architecture ?  */
+  bfd_default_compatible,	/* Architecture comparison function.  */
+  bfd_default_scan,	   	/* String to architecture conversion.  */
+  bfd_arch_default_fill,	/* Default fill.  */
+  &bfd_microblaze_arch[1]  	/* Next in list.  */
+},
 {
   32,				/* 32 bits in a word.  */
   32,				/* 32 bits in an address.  */
@@ -38,4 +55,37 @@ const bfd_arch_info_type bfd_microblaze_arch =
   bfd_default_scan,		/* String to architecture conversion.  */
   bfd_arch_default_fill,	/* Default fill.  */
   NULL				/* Next in list.  */
+}
+#else
+{
+  32,		  		/* 32 bits in a word.  */
+  32,		  		/* 32 bits in an address.  */
+  8,		  		/* 8 bits in a byte.  */
+  bfd_arch_microblaze, 		/* Architecture.  */
+  0,		  		/* Machine number - 0 for now.  */
+  "microblaze",	  		/* Architecture name.  */
+  "MicroBlaze",	  		/* Printable name.  */
+  3,		  		/* Section align power.  */
+  TRUE,		  		/* Is this the default architecture ?  */
+  bfd_default_compatible,	/* Architecture comparison function.  */
+  bfd_default_scan,	   	/* String to architecture conversion.  */
+  bfd_arch_default_fill,	/* Default fill.  */
+  &bfd_microblaze_arch[1]   	/* Next in list.  */
+},
+{
+  64,		  		/* 32 bits in a word.  */
+  64,		  		/* 32 bits in an address.  */
+  8,		  		/* 8 bits in a byte.  */
+  bfd_arch_microblaze, 		/* Architecture.  */
+  0,		  		/* Machine number - 0 for now.  */
+  "microblaze",	  		/* Architecture name.  */
+  "MicroBlaze",	  		/* Printable name.  */
+  3,		  		/* Section align power.  */
+  FALSE,		  		/* Is this the default architecture ?  */
+  bfd_default_compatible,	/* Architecture comparison function.  */
+  bfd_default_scan,	   	/* String to architecture conversion.  */
+  bfd_arch_default_fill,	/* Default fill.  */
+  NULL			  	/* Next in list.  */
+}
+#endif
 };

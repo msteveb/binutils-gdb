@@ -420,6 +420,8 @@ ALL_64_EMULATION_SOURCES = \
 	eelf32ltsmipn32.c \
 	eelf32ltsmipn32_fbsd.c \
 	eelf32mipswindiss.c \
+	eelf64microblazeel.c \
+	eelf64microblaze.c \
 	eelf64_aix.c \
 	eelf64_ia64.c \
 	eelf64_ia64_fbsd.c \
@@ -1687,6 +1689,12 @@ eelf32_x86_64_nacl.c: $(srcdir)/emulparams/elf32_x86_64_nacl.sh \
   $(srcdir)/emulparams/elf32_x86_64.sh \
   $(srcdir)/emulparams/elf_nacl.sh \
   $(ELF_X86_DEPS) $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}
+
+eelf64microblazeel.c: $(srcdir)/emulparams/elf64microblazeel.sh \
+  $(ELF_DEPS) $(srcdir)/scripttempl/elfmicroblaze.sc ${GEN_DEPENDS}
+
+eelf64microblaze.c: $(srcdir)/emulparams/elf64microblaze.sh \
+  $(ELF_DEPS) $(srcdir)/scripttempl/elfmicroblaze.sc ${GEN_DEPENDS}
 
 eelf64_aix.c: $(srcdir)/emulparams/elf64_aix.sh \
   $(ELF_DEPS) $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}

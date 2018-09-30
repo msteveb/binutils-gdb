@@ -35,10 +35,13 @@
 #define streq(a,b) (strcmp (a, b) == 0)
 #endif
 
+static int microblaze_arch_size = 0;
+
 #define OPTION_EB (OPTION_MD_BASE + 0)
 #define OPTION_EL (OPTION_MD_BASE + 1)
 #define OPTION_LITTLE (OPTION_MD_BASE + 2)
 #define OPTION_BIG (OPTION_MD_BASE + 3)
+#define OPTION_M64 (OPTION_MD_BASE + 4)
 
 void microblaze_generate_symbol (char *sym);
 static bfd_boolean check_spl_reg (unsigned *);
@@ -773,6 +776,74 @@ parse_imm (char * s, expressionS * e, offsetT min, offsetT max)
   return new_pointer;
 }
 
+ static char *
+parse_imml (char * s, expressionS * e, long min, long max)
+{
+  char *new_pointer;
+  char *atp;
+  int itype, ilen;
+
+  ilen = 0;
+
+  /* Find the start of "@GOT" or "@PLT" suffix (if any) */
+  for (atp = s; *atp != '@'; atp++)
+    if (is_end_of_line[(unsigned char) *atp])
+      break;
+
+  if (*atp == '@')
+    {
+      itype = match_imm (atp + 1, &ilen);
+      if (itype != 0)
+        {
+          *atp = 0;
+          e->X_md = itype;
+        }
+      else
+        {
+          atp = NULL;
+          e->X_md = 0;
+          ilen = 0;
+        }
+      *atp = 0;
+    }
+  else
+    {
+      atp = NULL;
+      e->X_md = 0;
+    }
+
+  if (atp && !GOT_symbol)
+    {
+      GOT_symbol = symbol_find_or_make (GOT_SYMBOL_NAME);
+    }
+
+  new_pointer = parse_exp (s, e);
+
+  if (!GOT_symbol && ! strncmp (s, GOT_SYMBOL_NAME, 20))
+    {
+      GOT_symbol = symbol_find_or_make (GOT_SYMBOL_NAME);
+    }
+
+  if (e->X_op == O_absent)
+    ; /* An error message has already been emitted.  */
+  else if ((e->X_op != O_constant && e->X_op != O_symbol) )
+    as_fatal (_("operand must be a constant or a label"));
+  else if ((e->X_op == O_constant) && ((long) e->X_add_number < min
+				       || (long) e->X_add_number > max))
+    {
+      as_fatal (_("operand must be absolute in range %ld..%ld, not %ld"),
+                min, max, (long) e->X_add_number);
+    }
+
+  if (atp)
+    {
+      *atp = '@'; /* restore back (needed?)  */
+      if (new_pointer >= atp)
+        new_pointer += ilen + 1; /* sizeof (imm_suffix) + 1 for '@' */
+    }
+  return new_pointer;
+}
+
 static char *
 check_got (int * got_type, int * got_len)
 {
@@ -920,6 +991,7 @@ md_assemble (char * str)
   unsigned int immed, immed2, temp;
   expressionS exp;
   char name[20];
+  long immedl;
 
   /* Drop leading whitespace.  */
   while (ISSPACE (* str))
@@ -1129,7 +1201,7 @@ md_assemble (char * str)
 	}
       break;
 
-    case INST_TYPE_RD_R1_IMM5:
+    case INST_TYPE_RD_R1_IMMS:
       if (strcmp (op_end, ""))
         op_end = parse_reg (op_end + 1, &reg1);  /* Get rd.  */
       else
@@ -1163,16 +1235,22 @@ md_assemble (char * str)
           immed = exp.X_add_number;
         }
 
-      if (immed != (immed % 32))
+      if ((immed != (immed % 32)) &&
+          (opcode->instr == bslli || opcode->instr == bsrai || opcode->instr == bsrli))
 	{
           as_warn (_("Shift value > 32. using <value %% 32>"));
           immed = immed % 32;
         }
+      else if (immed != (immed % 64))
+	{
+          as_warn (_("Shift value > 64. using <value %% 64>"));
+          immed = immed % 64;
+        }
       inst |= (reg1 << RD_LOW) & RD_MASK;
       inst |= (reg2 << RA_LOW) & RA_MASK;
-      inst |= (immed << IMM_LOW) & IMM5_MASK;
+      inst |= (immed << IMM_LOW) & IMM6_MASK;
       break;
- case INST_TYPE_RD_R1_IMM5_IMM5:
+ case INST_TYPE_RD_R1_IMMW_IMMS:
       if (strcmp (op_end, ""))
         op_end = parse_reg (op_end + 1, &reg1);  /* Get rd.  */
       else
@@ -1196,7 +1274,7 @@ md_assemble (char * str)
 
       /* Width immediate value.  */
       if (strcmp (op_end, ""))
-        op_end = parse_imm (op_end + 1, &exp, MIN_IMM_WIDTH, MAX_IMM_WIDTH);
+        op_end = parse_imm (op_end + 1, &exp, MIN_IMM, MAX_IMM);
       else
         as_fatal (_("Error in statement syntax"));
       if (exp.X_op != O_constant)
@@ -1208,6 +1286,8 @@ md_assemble (char * str)
         immed = exp.X_add_number;
       if (opcode->instr == bsefi && immed > 31)
         as_fatal (_("Width value must be less than 32"));
+      else if (opcode->instr == bslefi && immed > 63)
+        as_fatal (_("Width value must be less than 64"));
 
       /* Shift immediate value.  */
       if (strcmp (op_end, ""))
@@ -1215,32 +1295,40 @@ md_assemble (char * str)
       else
         as_fatal (_("Error in statement syntax"));
       if (exp.X_op != O_constant)
-	    {
+       {
           as_warn (_("Symbol used as immediate shift value for bit field instruction"));
           immed2 = 0;
         }
       else
-	    {
+        {
           output = frag_more (isize);
           immed2 = exp.X_add_number;
-	    }
-      if (immed2 != (immed2 % 32))
-	    {
-          as_warn (_("Shift value greater than 32. using <value %% 32>"));
+	}
+      if ((immed2 != (immed2 % 32)) && (opcode->instr == bsefi || opcode->instr == bsifi))
+	{
+          
+	  as_warn (_("Shift value greater than 32. using <value %% 32>"));
           immed2 = immed2 % 32;
+        }
+      else if (immed2 != (immed2 % 64))
+	{
+          as_warn (_("Shift value greater than 64. using <value %% 64>"));
+          immed2 = immed2 % 64;
         }
 
       /* Check combined value.  */
-      if (immed + immed2 > 32)
+      if ((immed + immed2 > 32) && (opcode->instr == bsefi || opcode->instr == bsifi))
         as_fatal (_("Width value + shift value must not be greater than 32"));
 
+      else if (immed + immed2 > 64)
+        as_fatal (_("Width value + shift value must not be greater than 64"));
       inst |= (reg1 << RD_LOW) & RD_MASK;
       inst |= (reg2 << RA_LOW) & RA_MASK;
-      if (opcode->instr == bsefi)
-        inst |= (immed & IMM5_MASK) << IMM_WIDTH_LOW; /* bsefi */
+      if (opcode->instr == bsefi || opcode->instr == bslefi)
+        inst |= (immed & IMM6_MASK) << IMM_WIDTH_LOW; /* bsefi or bslefi */
       else
-        inst |= ((immed + immed2 - 1) & IMM5_MASK) << IMM_WIDTH_LOW; /* bsifi */
-      inst |= (immed2 << IMM_LOW) & IMM5_MASK;
+        inst |= ((immed + immed2 - 1) & IMM6_MASK) << IMM_WIDTH_LOW; /* bsifi or bslifi */
+      inst |= (immed2 << IMM_LOW) & IMM6_MASK;
       break;
     case INST_TYPE_R1_R2:
       if (strcmp (op_end, ""))
@@ -1808,6 +1896,142 @@ md_assemble (char * str)
       }
       inst |= (immed << IMM_MBAR);
       break;
+    /* For 64-bit instructions */
+    case INST_TYPE_RD_R1_IMML:
+      if (strcmp (op_end, ""))
+	op_end = parse_reg (op_end + 1, &reg1);  /* Get rd.  */
+      else
+ 	{
+          as_fatal (_("Error in statement syntax"));
+          reg1 = 0;
+        }
+      if (strcmp (op_end, ""))
+	op_end = parse_reg (op_end + 1, &reg2);  /* Get r1.  */
+      else
+	{
+          as_fatal (_("Error in statement syntax"));
+          reg2 = 0;
+        }
+      if (strcmp (op_end, ""))
+	op_end = parse_imml (op_end + 1, & exp, MIN_IMML, MAX_IMML);
+      else
+	as_fatal (_("Error in statement syntax"));
+
+      /* Check for spl registers.  */
+      if (check_spl_reg (& reg1))
+	as_fatal (_("Cannot use special register with this instruction"));
+      if (check_spl_reg (& reg2))
+	as_fatal (_("Cannot use special register with this instruction"));
+
+      if (exp.X_op != O_constant)
+	{
+	  char *opc = NULL;
+	  relax_substateT subtype;
+
+	  if (exp.X_md != 0)
+	    subtype = get_imm_otype(exp.X_md);
+	  else
+	    subtype = opcode->inst_offset_type;
+
+	  output = frag_var (rs_machine_dependent,
+			     isize * 2, /* maxm of 2 words.  */
+			     isize * 2, /* minm of 2 words.  */
+			     subtype,   /* PC-relative or not.  */
+			     exp.X_add_symbol,
+			     exp.X_add_number,
+			     opc);
+	  immedl = 0L;
+        }
+      else
+	{
+	  output = frag_more (isize);
+	  immedl = exp.X_add_number;
+
+	  opcode1 = (struct op_code_struct *) hash_find (opcode_hash_control, "imml");
+	  if (opcode1 == NULL)
+	    {
+	      as_bad (_("unknown opcode \"%s\""), "imml");
+	      return;
+	    }
+
+	  inst1 = opcode1->bit_sequence;
+	  inst1 |= ((immedl & 0xFFFFFFFFFFFF0000L) >> 16) & IMML_MASK;
+	  output[0] = INST_BYTE0 (inst1);
+	  output[1] = INST_BYTE1 (inst1);
+	  output[2] = INST_BYTE2 (inst1);
+	  output[3] = INST_BYTE3 (inst1);
+	  output = frag_more (isize);
+        }
+
+      inst |= (reg1 << RD_LOW) & RD_MASK;
+      inst |= (reg2 << RA_LOW) & RA_MASK;
+      inst |= (immedl << IMM_LOW) & IMM_MASK;
+      break;
+
+    case INST_TYPE_R1_IMML:
+      if (strcmp (op_end, ""))
+        op_end = parse_reg (op_end + 1, &reg1);  /* Get r1.  */
+      else
+	{
+          as_fatal (_("Error in statement syntax"));
+          reg1 = 0;
+        }
+      if (strcmp (op_end, ""))
+        op_end = parse_imml (op_end + 1, & exp, MIN_IMM, MAX_IMM);
+      else
+        as_fatal (_("Error in statement syntax"));
+
+      /* Check for spl registers.  */
+      if (check_spl_reg (&reg1))
+        as_fatal (_("Cannot use special register with this instruction"));
+
+      if (exp.X_op != O_constant)
+	{
+          char *opc = NULL;
+          relax_substateT subtype;
+
+	  if (exp.X_md != 0)
+	    subtype = get_imm_otype(exp.X_md);
+	  else
+	    subtype = opcode->inst_offset_type;
+
+	  output = frag_var (rs_machine_dependent,
+			     isize * 2, /* maxm of 2 words.  */
+			     isize * 2, /* minm of 2 words.  */
+			     subtype,   /* PC-relative or not.  */
+			     exp.X_add_symbol,
+			     exp.X_add_number,
+			     opc);
+	  immedl = 0L;
+	}
+      else
+	{
+          output = frag_more (isize);
+          immedl = exp.X_add_number;
+
+	  opcode1 = (struct op_code_struct *) hash_find (opcode_hash_control, "imml");
+	  if (opcode1 == NULL)
+	    {
+	      as_bad (_("unknown opcode \"%s\""), "imml");
+	      return;
+	    }
+
+          inst1 = opcode1->bit_sequence;
+	  inst1 |= ((immedl & 0xFFFFFFFFFFFF0000L) >> 16) & IMML_MASK;
+          output[0] = INST_BYTE0 (inst1);
+          output[1] = INST_BYTE1 (inst1);
+          output[2] = INST_BYTE2 (inst1);
+          output[3] = INST_BYTE3 (inst1);
+          output = frag_more (isize);
+        }
+
+      inst |= (reg1 << RA_LOW) & RA_MASK;
+      inst |= (immedl << IMM_LOW) & IMM_MASK;
+      break;
+
+    case INST_TYPE_IMML:
+      as_fatal (_("An IMML instruction should not be present in the .s file"));
+      break;
 
     default:
       as_fatal (_("unimplemented opcode \"%s\""), name);
@@ -1918,6 +2142,7 @@ struct option md_longopts[] =
   {"EL", no_argument, NULL, OPTION_EL},
   {"mlittle-endian", no_argument, NULL, OPTION_LITTLE},
   {"mbig-endian", no_argument, NULL, OPTION_BIG},
+  {"m64", no_argument, NULL, OPTION_M64},
   { NULL,          no_argument, NULL, 0}
 };
 
@@ -2569,6 +2794,18 @@ tc_gen_reloc (asection * section ATTRIBUTE_UNUSED, fixS * fixp)
   return rel;
 }
 
+/* Called by TARGET_FORMAT.  */
+const char *
+microblaze_target_format (void)
+{
+
+  if (microblaze_arch_size == 64)
+    return "elf64-microblazeel";
+  else 
+      return target_big_endian ? "elf32-microblaze" : "elf32-microblazeel";
+}
+
+
 int
 md_parse_option (int c, const char * arg ATTRIBUTE_UNUSED)
 {
@@ -2581,6 +2818,10 @@ md_parse_option (int c, const char * arg ATTRIBUTE_UNUSED)
     case OPTION_EL:
     case OPTION_LITTLE:
       target_big_endian = 0;
+      break;
+    case OPTION_M64:
+      //if (arg != NULL && strcmp (arg, "64") == 0)
+      microblaze_arch_size = 64;
       break;
     default:
       return 0;
@@ -2597,6 +2838,7 @@ md_show_usage (FILE * stream ATTRIBUTE_UNUSED)
   fprintf (stream, _(" MicroBlaze specific assembler options:\n"));
   fprintf (stream, "  -%-23s%s\n", "mbig-endian", N_("assemble for a big endian cpu"));
   fprintf (stream, "  -%-23s%s\n", "mlittle-endian", N_("assemble for a little endian cpu"));
+  fprintf (stream, "  -%-23s%s\n", "m64", N_("generate 64-bit elf"));
 }
 
 
