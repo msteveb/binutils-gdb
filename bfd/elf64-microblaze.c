@@ -117,6 +117,21 @@ static reloc_howto_type microblaze_elf_howto_raw[] =
           TRUE), 		/* PC relative offset?  */
 
    /* A 64 bit relocation.  Table entry not really used.  */
+   HOWTO (R_MICROBLAZE_IMML_64,     	/* Type.  */
+          0,			/* Rightshift.  */
+          4,			/* Size (0 = byte, 1 = short, 2 = long).  */
+          64,			/* Bitsize.  */
+          TRUE,		/* PC_relative.  */
+          0,			/* Bitpos.  */
+          complain_overflow_dont, /* Complain on overflow.  */
+          bfd_elf_generic_reloc,/* Special Function.  */
+          "R_MICROBLAZE_IMML_64",   	/* Name.  */
+          FALSE,		/* Partial Inplace.  */
+          0,			/* Source Mask.  */
+          0x0000ffff,		/* Dest Mask.  */
+          TRUE), 		/* PC relative offset?  */
+
+   /* A 64 bit relocation.  Table entry not really used.  */
    HOWTO (R_MICROBLAZE_64,     	/* Type.  */
           0,			/* Rightshift.  */
           2,			/* Size (0 = byte, 1 = short, 2 = long).  */
@@ -260,6 +275,21 @@ static reloc_howto_type microblaze_elf_howto_raw[] =
           complain_overflow_dont, /* Complain on overflow.  */
           bfd_elf_generic_reloc,	/* Special Function.  */
           "R_MICROBLAZE_GOTPC_64", 	/* Name.  */
+          FALSE,		/* Partial Inplace.  */
+          0,			/* Source Mask.  */
+          0x0000ffff,		/* Dest Mask.  */
+          TRUE), 		/* PC relative offset?  */
+
+   /* A 64 bit GOTPC relocation.  Table-entry not really used.  */
+   HOWTO (R_MICROBLAZE_GPC_64,   	/* Type.  */
+          0,			/* Rightshift.  */
+          2,			/* Size (0 = byte, 1 = short, 2 = long).  */
+          16,			/* Bitsize.  */
+          TRUE,			/* PC_relative.  */
+          0,			/* Bitpos.  */
+          complain_overflow_dont, /* Complain on overflow.  */
+          bfd_elf_generic_reloc,	/* Special Function.  */
+          "R_MICROBLAZE_GPC_64", 	/* Name.  */
           FALSE,		/* Partial Inplace.  */
           0,			/* Source Mask.  */
           0x0000ffff,		/* Dest Mask.  */
@@ -589,8 +619,14 @@ microblaze_elf_reloc_type_lookup (bfd * abfd ATTRIBUTE_UNUSED,
     case BFD_RELOC_VTABLE_ENTRY:
       microblaze_reloc = R_MICROBLAZE_GNU_VTENTRY;
       break;
+    case BFD_RELOC_MICROBLAZE_64:
+      microblaze_reloc = R_MICROBLAZE_IMML_64;
+      break;
     case BFD_RELOC_MICROBLAZE_64_GOTPC:
       microblaze_reloc = R_MICROBLAZE_GOTPC_64;
+      break;
+    case BFD_RELOC_MICROBLAZE_64_GPC:
+      microblaze_reloc = R_MICROBLAZE_GPC_64;
       break;
     case BFD_RELOC_MICROBLAZE_64_GOT:
       microblaze_reloc = R_MICROBLAZE_GOT_64;
@@ -1161,6 +1197,7 @@ microblaze_elf_relocate_section (bfd *output_bfd,
 	      break; /* Do nothing.  */
 
 	    case (int) R_MICROBLAZE_GOTPC_64:
+	    case (int) R_MICROBLAZE_GPC_64:
 	      relocation = htab->sgotplt->output_section->vma
 		+ htab->sgotplt->output_offset;
 	      relocation -= (input_section->output_section->vma
@@ -1431,7 +1468,7 @@ microblaze_elf_relocate_section (bfd *output_bfd,
 		if (r_symndx == STN_UNDEF || (input_section->flags & SEC_ALLOC) == 0)
 		  {
 		    relocation += addend;
-		    if (r_type == R_MICROBLAZE_32)
+		    if (r_type == R_MICROBLAZE_32)// || r_type == R_MICROBLAZE_IMML_64)
 		      bfd_put_32 (input_bfd, relocation, contents + offset);
 		    else
 		      {
@@ -1875,6 +1912,28 @@ microblaze_elf_relax_section (bfd *abfd,
 		      && ELF64_ST_TYPE (isym->st_info) == STT_SECTION)
 		    irel->r_addend -= calc_fixup (irel->r_addend, 0, sec);
 	        }
+	      break;
+	    case R_MICROBLAZE_IMML_64:
+	      {
+	        /* This was a PC-relative instruction that was
+ 		   completely resolved.  */
+	        int sfix, efix;
+            unsigned int val;
+	        bfd_vma target_address;
+	        target_address = irel->r_addend + irel->r_offset;
+	        sfix = calc_fixup (irel->r_offset, 0, sec);
+	        efix = calc_fixup (target_address, 0, sec);
+
+            /* Validate the in-band val.  */
+            val = bfd_get_32 (abfd, contents + irel->r_offset);
+            if (val != irel->r_addend && ELF64_R_TYPE (irel->r_info) == R_MICROBLAZE_32_NONE) {
+               fprintf(stderr, "%d: CORRUPT relax reloc %x %lx\n", __LINE__, val, irel->r_addend);
+            }
+	        irel->r_addend -= (efix - sfix);
+	        /* Should use HOWTO.  */
+	        microblaze_bfd_write_imm_value_64 (abfd, contents + irel->r_offset,
+	                                           irel->r_addend);
+	      }
 	      break;
 	    case R_MICROBLAZE_NONE:
 	    case R_MICROBLAZE_32_NONE:

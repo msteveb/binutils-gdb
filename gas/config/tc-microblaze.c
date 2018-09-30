@@ -94,6 +94,7 @@ const char FLT_CHARS[] = "rRsSfFdDxXpP";
 #define TLSTPREL_OFFSET      16
 #define TEXT_OFFSET	     17
 #define TEXT_PC_OFFSET       18
+#define DEFINED_64_OFFSET   19
 
 /* Initialize the relax table.  */
 const relax_typeS md_relax_table[] =
@@ -117,6 +118,8 @@ const relax_typeS md_relax_table[] =
   { 0x7fffffff, 0x80000000, INST_WORD_SIZE*2, 0 },  /* 16: TLSTPREL_OFFSET.  */
   { 0x7fffffff, 0x80000000, INST_WORD_SIZE*2, 0 },  /* 17: TEXT_OFFSET.  */
   { 0x7fffffff, 0x80000000, INST_WORD_SIZE*2, 0 }   /* 18: TEXT_PC_OFFSET.  */
+//  { 0x7fffffff, 0x80000000, INST_WORD_SIZE*2, 0 }   /* 16: TLSTPREL_OFFSET.  */
+  { 0x7fffffffffffffff, 0x8000000000000000, INST_WORD_SIZE, 0 }   /* 17: DEFINED_64_OFFSET.  */
 };
 
 static struct hash_control * opcode_hash_control;	/* Opcode mnemonics.  */
@@ -396,7 +399,8 @@ const pseudo_typeS md_pseudo_table[] =
   {"data32", cons, 4},     /* Same as word.  */
   {"ent", s_func, 0}, /* Treat ent as function entry point.  */
   {"end", microblaze_s_func, 1}, /* Treat end as function end point.  */
-  {"gpword", s_rva, 4}, /* gpword label => store resolved label address in data section.  */
+  {"gpword", s_rva, 8}, /* gpword label => store resolved label address in data section.  */
+  {"gpdword", s_rva, 8}, /* gpword label => store resolved label address in data section.  */
   {"weakext", microblaze_s_weakext, 0},
   {"rodata", microblaze_s_rdata, 0},
   {"sdata2", microblaze_s_rdata, 1},
@@ -405,6 +409,7 @@ const pseudo_typeS md_pseudo_table[] =
   {"sbss", microblaze_s_bss, 1},
   {"text", microblaze_s_text, 0},
   {"word", cons, 4},
+  {"dword", cons, 8},
   {"frame", s_ignore, 0},
   {"mask", s_ignore, 0}, /* Emitted by gcc.  */
   {NULL, NULL, 0}
@@ -898,7 +903,7 @@ check_got (int * got_type, int * got_len)
 extern bfd_reloc_code_real_type
 parse_cons_expression_microblaze (expressionS *exp, int size)
 {
-  if (size == 4)
+  if (size == 4 || (microblaze_arch_size == 64 && size == 8))
     {
       /* Handle @GOTOFF et.al.  */
       char *save, *gotfree_copy;
@@ -930,6 +935,7 @@ parse_cons_expression_microblaze (expressionS *exp, int size)
 
 static const char * str_microblaze_ro_anchor = "RO";
 static const char * str_microblaze_rw_anchor = "RW";
+static const char * str_microblaze_64 = "64";
 
 static bfd_boolean
 check_spl_reg (unsigned * reg)
@@ -1174,6 +1180,33 @@ md_assemble (char * str)
               inst |= (immed << IMM_LOW) & IMM_MASK;
             }
 	}
+#if 0 //revisit
+      else if (streq (name, "lli") || streq (name, "sli"))
+	{
+          temp = immed & 0xFFFFFFFFFFFF8000;
+          if ((temp != 0) && (temp != 0xFFFFFFFFFFFF8000))
+	    {
+              /* Needs an immediate inst.  */
+              opcode1 = (struct op_code_struct *) hash_find (opcode_hash_control, "imml");
+              if (opcode1 == NULL)
+                {
+                  as_bad (_("unknown opcode \"%s\""), "imml");
+                  return;
+                }
+
+              inst1 = opcode1->bit_sequence;
+	      inst1 |= ((immedl & 0xFFFFFFFFFFFF0000L) >> 16) & IMML_MASK;
+              output[0] = INST_BYTE0 (inst1);
+              output[1] = INST_BYTE1 (inst1);
+              output[2] = INST_BYTE2 (inst1);
+              output[3] = INST_BYTE3 (inst1);
+              output = frag_more (isize);
+	    }
+	  inst |= (reg1 << RD_LOW) & RD_MASK;
+	  inst |= (reg2 << RA_LOW) & RA_MASK;
+	  inst |= (immed << IMM_LOW) & IMM_MASK;
+        }
+#endif
       else
 	{
           temp = immed & 0xFFFF8000;
@@ -1926,6 +1959,7 @@ md_assemble (char * str)
       if (exp.X_op != O_constant)
 	{
 	  char *opc = NULL;
+	  //char *opc = str_microblaze_64;
 	  relax_substateT subtype;
 
 	  if (exp.X_md != 0)
@@ -1939,7 +1973,7 @@ md_assemble (char * str)
 			     subtype,   /* PC-relative or not.  */
 			     exp.X_add_symbol,
 			     exp.X_add_number,
-			     opc);
+			     (char *) opc);
 	  immedl = 0L;
         }
       else
@@ -1977,7 +2011,7 @@ md_assemble (char * str)
           reg1 = 0;
         }
       if (strcmp (op_end, ""))
-        op_end = parse_imml (op_end + 1, & exp, MIN_IMM, MAX_IMM);
+        op_end = parse_imml (op_end + 1, & exp, MIN_IMML, MAX_IMML);
       else
         as_fatal (_("Error in statement syntax"));
 
@@ -1987,7 +2021,8 @@ md_assemble (char * str)
 
       if (exp.X_op != O_constant)
 	{
-          char *opc = NULL;
+	  //char *opc = NULL;
+          char *opc = str_microblaze_64;
           relax_substateT subtype;
 
 	  if (exp.X_md != 0)
@@ -2001,14 +2036,13 @@ md_assemble (char * str)
 			     subtype,   /* PC-relative or not.  */
 			     exp.X_add_symbol,
 			     exp.X_add_number,
-			     opc);
+			     (char *) opc);
 	  immedl = 0L;
 	}
       else
 	{
           output = frag_more (isize);
           immedl = exp.X_add_number;
-
 	  opcode1 = (struct op_code_struct *) hash_find (opcode_hash_control, "imml");
 	  if (opcode1 == NULL)
 	    {
@@ -2187,13 +2221,23 @@ md_convert_frag (bfd * abfd ATTRIBUTE_UNUSED,
       fragP->fr_fix += INST_WORD_SIZE * 2;
       fragP->fr_var = 0;
       break;
+    case DEFINED_64_OFFSET:
+      if (fragP->fr_symbol == GOT_symbol)
+        fix_new (fragP, fragP->fr_fix, INST_WORD_SIZE, fragP->fr_symbol,
+	         fragP->fr_offset, TRUE, BFD_RELOC_MICROBLAZE_64_GPC);
+      else
+        fix_new (fragP, fragP->fr_fix, INST_WORD_SIZE, fragP->fr_symbol,
+	         fragP->fr_offset, TRUE, BFD_RELOC_MICROBLAZE_64);
+      fragP->fr_fix += INST_WORD_SIZE * 2;
+      fragP->fr_var = 0;
+      break;
     case DEFINED_ABS_SEGMENT:
       if (fragP->fr_symbol == GOT_symbol)
         fix_new (fragP, fragP->fr_fix, INST_WORD_SIZE * 2, fragP->fr_symbol,
 	         fragP->fr_offset, TRUE, BFD_RELOC_MICROBLAZE_64_GOTPC);
       else
         fix_new (fragP, fragP->fr_fix, INST_WORD_SIZE * 2, fragP->fr_symbol,
-	         fragP->fr_offset, FALSE, BFD_RELOC_64);
+	         fragP->fr_offset, TRUE, BFD_RELOC_64);
       fragP->fr_fix += INST_WORD_SIZE * 2;
       fragP->fr_var = 0;
       break;
@@ -2416,22 +2460,38 @@ md_apply_fix (fixS *   fixP,
     case BFD_RELOC_64_PCREL:
     case BFD_RELOC_64:
     case BFD_RELOC_MICROBLAZE_64_TEXTREL:
+    case BFD_RELOC_MICROBLAZE_64:
       /* Add an imm instruction.  First save the current instruction.  */
       for (i = 0; i < INST_WORD_SIZE; i++)
 	buf[i + INST_WORD_SIZE] = buf[i];
+      if (fixP->fx_r_type == BFD_RELOC_MICROBLAZE_64)
+        {
+          /* Generate the imm instruction.  */
+          opcode1 = (struct op_code_struct *) hash_find (opcode_hash_control, "imml");
+          if (opcode1 == NULL)
+	    {
+	      as_bad (_("unknown opcode \"%s\""), "imml");
+	      return;
+	    }
 
-      /* Generate the imm instruction.  */
-      opcode1 = (struct op_code_struct *) hash_find (opcode_hash_control, "imm");
-      if (opcode1 == NULL)
-	{
-	  as_bad (_("unknown opcode \"%s\""), "imm");
-	  return;
-	}
-
-      inst1 = opcode1->bit_sequence;
-      if (fixP->fx_addsy == NULL || S_IS_DEFINED (fixP->fx_addsy))
-	inst1 |= ((val & 0xFFFF0000) >> 16) & IMM_MASK;
-
+           inst1 = opcode1->bit_sequence;
+           if (fixP->fx_addsy == NULL || S_IS_DEFINED (fixP->fx_addsy))
+	     inst1 |= ((val & 0xFFFFFFFFFFFF0000L) >> 16) & IMML_MASK;
+         }
+      else
+        {
+          /* Generate the imm instruction.  */
+          opcode1 = (struct op_code_struct *) hash_find (opcode_hash_control, "imm");
+          if (opcode1 == NULL)
+	    {
+	      as_bad (_("unknown opcode \"%s\""), "imm");
+	      return;
+	    }
+     
+          inst1 = opcode1->bit_sequence;
+          if (fixP->fx_addsy == NULL || S_IS_DEFINED (fixP->fx_addsy))
+	    inst1 |= ((val & 0xFFFF0000) >> 16) & IMM_MASK;
+         }
       buf[0] = INST_BYTE0 (inst1);
       buf[1] = INST_BYTE1 (inst1);
       buf[2] = INST_BYTE2 (inst1);
@@ -2460,6 +2520,7 @@ md_apply_fix (fixS *   fixP,
       /* Fall through.  */
 
     case BFD_RELOC_MICROBLAZE_64_GOTPC:
+    case BFD_RELOC_MICROBLAZE_64_GPC:
     case BFD_RELOC_MICROBLAZE_64_GOT:
     case BFD_RELOC_MICROBLAZE_64_PLT:
     case BFD_RELOC_MICROBLAZE_64_GOTOFF:
@@ -2467,12 +2528,16 @@ md_apply_fix (fixS *   fixP,
       /* Add an imm instruction.  First save the current instruction.  */
       for (i = 0; i < INST_WORD_SIZE; i++)
 	buf[i + INST_WORD_SIZE] = buf[i];
-
-      /* Generate the imm instruction.  */
-      opcode1 = (struct op_code_struct *) hash_find (opcode_hash_control, "imm");
+      if (fixP->fx_r_type == BFD_RELOC_MICROBLAZE_64_GPC)
+        opcode1 = (struct op_code_struct *) hash_find (opcode_hash_control, "imml");
+      else
+        opcode1 = (struct op_code_struct *) hash_find (opcode_hash_control, "imm");
       if (opcode1 == NULL)
 	{
-	  as_bad (_("unknown opcode \"%s\""), "imm");
+      	  if (fixP->fx_r_type == BFD_RELOC_MICROBLAZE_64_GPC)
+	    as_bad (_("unknown opcode \"%s\""), "imml");
+          else
+	    as_bad (_("unknown opcode \"%s\""), "imm");
 	  return;
 	}
 
@@ -2495,6 +2560,8 @@ md_apply_fix (fixS *   fixP,
       /* This fixup has been resolved.  Create a reloc in case the linker
 	 moves code around due to relaxing.  */
       if (fixP->fx_r_type == BFD_RELOC_64_PCREL)
+	    fixP->fx_r_type = BFD_RELOC_MICROBLAZE_64_NONE;
+      if (fixP->fx_r_type == BFD_RELOC_MICROBLAZE_64)
 	    fixP->fx_r_type = BFD_RELOC_MICROBLAZE_64_NONE;
       else if (fixP->fx_r_type == BFD_RELOC_32)
         fixP->fx_r_type = BFD_RELOC_MICROBLAZE_32_NONE;
@@ -2539,6 +2606,32 @@ md_estimate_size_before_relax (fragS * fragP,
           as_bad (_("Absolute PC-relative value in relaxation code.  Assembler error....."));
           abort ();
         }
+      else if (S_GET_SEGMENT (fragP->fr_symbol) == segment_type
+               && !S_IS_WEAK (fragP->fr_symbol))
+        {
+           if (fragP->fr_opcode != NULL) {
+	     if(streq (fragP->fr_opcode, str_microblaze_64)) 
+             {
+               /* Used as an absolute value.  */
+              fragP->fr_subtype = DEFINED_64_OFFSET;
+               /* Variable part does not change.  */
+              fragP->fr_var = INST_WORD_SIZE;
+	     }
+	   else
+	     {
+               fragP->fr_subtype = DEFINED_PC_OFFSET;
+      	       /* Don't know now whether we need an imm instruction.  */
+               fragP->fr_var = INST_WORD_SIZE;
+	     }
+	   }  
+	   else
+	     {
+               fragP->fr_subtype = DEFINED_PC_OFFSET;
+      	       /* Don't know now whether we need an imm instruction.  */
+               fragP->fr_var = INST_WORD_SIZE;
+	     }
+        }
+    #if 0
       else if (S_GET_SEGMENT (fragP->fr_symbol) == segment_type &&
                !S_IS_WEAK (fragP->fr_symbol))
         {
@@ -2546,6 +2639,7 @@ md_estimate_size_before_relax (fragS * fragP,
           /* Don't know now whether we need an imm instruction.  */
           fragP->fr_var = INST_WORD_SIZE;
         }
+#endif
       else if (S_IS_DEFINED (fragP->fr_symbol)
 	       && (((S_GET_SEGMENT (fragP->fr_symbol))->flags & SEC_CODE) == 0))
         {
@@ -2648,6 +2742,7 @@ md_estimate_size_before_relax (fragS * fragP,
     case TLSLD_OFFSET:
     case TLSTPREL_OFFSET:
     case TLSDTPREL_OFFSET:
+    case DEFINED_64_OFFSET:
       fragP->fr_var = INST_WORD_SIZE*2;
       break;
     case DEFINED_RO_SEGMENT:
@@ -2701,7 +2796,7 @@ md_pcrel_from_section (fixS * fixp, segT sec ATTRIBUTE_UNUSED)
   else
     {
       /* The case where we are going to resolve things... */
-      if (fixp->fx_r_type == BFD_RELOC_64_PCREL)
+      if (fixp->fx_r_type == BFD_RELOC_64_PCREL ||fixp->fx_r_type == BFD_RELOC_MICROBLAZE_64)
         return  fixp->fx_where + fixp->fx_frag->fr_address + INST_WORD_SIZE;
       else
         return  fixp->fx_where + fixp->fx_frag->fr_address;
@@ -2734,6 +2829,8 @@ tc_gen_reloc (asection * section ATTRIBUTE_UNUSED, fixS * fixp)
     case BFD_RELOC_MICROBLAZE_32_RWSDA:
     case BFD_RELOC_MICROBLAZE_32_SYM_OP_SYM:
     case BFD_RELOC_MICROBLAZE_64_GOTPC:
+    case BFD_RELOC_MICROBLAZE_64_GPC:
+    case BFD_RELOC_MICROBLAZE_64:
     case BFD_RELOC_MICROBLAZE_64_GOT:
     case BFD_RELOC_MICROBLAZE_64_PLT:
     case BFD_RELOC_MICROBLAZE_64_GOTOFF:
@@ -2876,7 +2973,10 @@ cons_fix_new_microblaze (fragS * frag,
           r = BFD_RELOC_32;
           break;
         case 8:
-          r = BFD_RELOC_64;
+          if (microblaze_arch_size == 64)
+            r = BFD_RELOC_32;
+          else
+            r = BFD_RELOC_64;
           break;
         default:
           as_bad (_("unsupported BFD relocation size %u"), size);

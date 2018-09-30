@@ -538,8 +538,8 @@ struct op_code_struct
   {"llr",     INST_TYPE_RD_R1_R2, INST_NO_OFFSET, NO_DELAY_SLOT, IMMVAL_MASK_NON_SPECIAL, 0xC8000300, OPCODE_MASK_H4, llr, memory_load_inst },
   {"sl",      INST_TYPE_RD_R1_R2, INST_NO_OFFSET, NO_DELAY_SLOT, IMMVAL_MASK_NON_SPECIAL, 0xD8000100, OPCODE_MASK_H4, sl, memory_store_inst },
   {"slr",     INST_TYPE_RD_R1_R2, INST_NO_OFFSET, NO_DELAY_SLOT, IMMVAL_MASK_NON_SPECIAL, 0xD8000300, OPCODE_MASK_H4, slr, memory_store_inst },
-  {"lli",     INST_TYPE_RD_R1_IMML, INST_NO_OFFSET, NO_DELAY_SLOT, IMMVAL_MASK_NON_SPECIAL, 0xE8000000, OPCODE_MASK_H, invalid_inst, memory_load_inst },  /* Identical to 32-bit */
-  {"sli",     INST_TYPE_RD_R1_IMML, INST_NO_OFFSET, NO_DELAY_SLOT, IMMVAL_MASK_NON_SPECIAL, 0xF8000000, OPCODE_MASK_H, invalid_inst, memory_store_inst }, /* Identical to 32-bit */
+  {"lli",     INST_TYPE_RD_R1_IMM, INST_NO_OFFSET, NO_DELAY_SLOT, IMMVAL_MASK_NON_SPECIAL, 0xEC000000, OPCODE_MASK_H, invalid_inst, memory_load_inst },  /* Identical to 32-bit */
+  {"sli",     INST_TYPE_RD_R1_IMM, INST_NO_OFFSET, NO_DELAY_SLOT, IMMVAL_MASK_NON_SPECIAL, 0xFC000000, OPCODE_MASK_H, invalid_inst, memory_store_inst }, /* Identical to 32-bit */
   {"lla",     INST_TYPE_RD_R1_IMML, INST_NO_OFFSET, NO_DELAY_SLOT, IMMVAL_MASK_NON_SPECIAL, 0x30000000, OPCODE_MASK_H, invalid_inst, arithmetic_inst },   /* lla translates to addlik */
   {"dadd",    INST_TYPE_RD_R1_R2, INST_NO_OFFSET, NO_DELAY_SLOT, IMMVAL_MASK_NON_SPECIAL, 0x58000400, OPCODE_MASK_H4, dadd, arithmetic_inst },
   {"drsub",   INST_TYPE_RD_R1_R2, INST_NO_OFFSET, NO_DELAY_SLOT, IMMVAL_MASK_NON_SPECIAL, 0x58000480, OPCODE_MASK_H4, drsub, arithmetic_inst },
