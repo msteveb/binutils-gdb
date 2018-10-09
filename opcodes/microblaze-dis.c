@@ -61,7 +61,7 @@ get_field_imml (long instr)
 {
   char tmpstr[25];
 
-  sprintf (tmpstr, "%d", (short)((instr & IMML_MASK) >> IMM_LOW));
+  sprintf (tmpstr, "%d", (int)((instr & IMML_MASK) >> IMM_LOW));
   return (strdup (tmpstr));
 }
 
