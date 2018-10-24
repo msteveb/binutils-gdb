@@ -1480,7 +1480,7 @@ microblaze_elf_relocate_section (bfd *output_bfd,
 					 + input_section->output_offset
 					 + offset + INST_WORD_SIZE);
 			unsigned long insn = bfd_get_32 (input_bfd, contents + offset +endian);
-    			if (insn == 0xb2000000 || insn == 0xb2ffffff)
+			if ((insn & 0xff000000) == 0xb2000000)
 			  {
         		    insn &= ~0x00ffffff;
 			    insn |= (relocation >> 16) & 0xffffff;
@@ -1593,7 +1593,7 @@ microblaze_elf_relocate_section (bfd *output_bfd,
 					     + offset + INST_WORD_SIZE);
 			  }
 			unsigned long insn = bfd_get_32 (input_bfd, contents + offset +endian);
-    			if (insn == 0xb2000000 || insn == 0xb2ffffff)
+			if ((insn & 0xff000000) == 0xb2000000)
 			  {
         		    insn &= ~0x00ffffff;
 			    insn |= (relocation >> 16) & 0xffffff;
@@ -1722,7 +1722,7 @@ microblaze_bfd_write_imm_value_32 (bfd *abfd, bfd_byte *bfd_addr, bfd_vma val)
 {
     unsigned long instr = bfd_get_32 (abfd, bfd_addr);
 
-    if (instr == 0xb2000000 || instr == 0xb2ffffff)
+    if ((instr & 0xff000000) == 0xb2000000)
       {
         instr &= ~0x00ffffff;
         instr |= (val & 0xffffff);
@@ -1745,7 +1745,7 @@ microblaze_bfd_write_imm_value_64 (bfd *abfd, bfd_byte *bfd_addr, bfd_vma val)
     unsigned long instr_lo;
 
     instr_hi = bfd_get_32 (abfd, bfd_addr);
-    if (instr_hi == 0xb2000000 || instr_hi == 0xb2ffffff)
+    if ((instr_hi & 0xff000000) == 0xb2000000)
       {
         instr_hi &= ~0x00ffffff;
         instr_hi |= (val >> 16) & 0xffffff;
@@ -2238,7 +2238,10 @@ microblaze_elf_relax_section (bfd *abfd,
           unsigned long instr_lo =  bfd_get_32 (abfd, ocontents
                                                 + irelscan->r_offset
                                                 + INST_WORD_SIZE);
-          immediate = (instr_hi & 0x0000ffff) << 16;
+          if ((instr_hi & 0xff000000) == 0xb2000000)
+            immediate = (instr_hi & 0x00ffffff) << 24;
+	  else
+            immediate = (instr_hi & 0x0000ffff) << 16;
           immediate |= (instr_lo & 0x0000ffff);
 		      offset = calc_fixup (irelscan->r_addend, 0, sec);
 		      immediate -= offset;
@@ -2282,7 +2285,10 @@ microblaze_elf_relax_section (bfd *abfd,
           unsigned long instr_lo =  bfd_get_32 (abfd, ocontents
                                                 + irelscan->r_offset
                                                 + INST_WORD_SIZE);
-          immediate = (instr_hi & 0x0000ffff) << 16;
+          if ((instr_hi & 0xff000000) == 0xb2000000)
+            immediate = (instr_hi & 0x00ffffff) << 24;
+	  else
+            immediate = (instr_hi & 0x0000ffff) << 16;
           immediate |= (instr_lo & 0x0000ffff);
 		      target_address = immediate;
 		      offset = calc_fixup (target_address, 0, sec);
