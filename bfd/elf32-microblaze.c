@@ -1996,6 +1996,7 @@ microblaze_elf_relax_section (bfd *abfd,
 		/* This was a PC-relative instruction that was
 		   completely resolved.  */
 		int sfix, efix;
+		unsigned int val;
 		bfd_vma target_address;
 		target_address = irel->r_addend + irel->r_offset;
 		sfix = calc_fixup (irel->r_offset, 0, sec);

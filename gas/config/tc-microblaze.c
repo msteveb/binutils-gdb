@@ -118,9 +118,9 @@ const relax_typeS md_relax_table[] =
   { 0x7fffffff, 0x80000000, INST_WORD_SIZE*2, 0 },  /* 15: TLSGOTTPREL_OFFSET.  */
   { 0x7fffffff, 0x80000000, INST_WORD_SIZE*2, 0 },  /* 16: TLSTPREL_OFFSET.  */
   { 0x7fffffff, 0x80000000, INST_WORD_SIZE*2, 0 },  /* 17: TEXT_OFFSET.  */
-  { 0x7fffffff, 0x80000000, INST_WORD_SIZE*2, 0 }   /* 18: TEXT_PC_OFFSET.  */
+  { 0x7fffffff, 0x80000000, INST_WORD_SIZE*2, 0 },  /* 18: TEXT_PC_OFFSET.  */
 //  { 0x7fffffff, 0x80000000, INST_WORD_SIZE*2, 0 }   /* 16: TLSTPREL_OFFSET.  */
-  { 0x7fffffffffffffff, 0x8000000000000000, INST_WORD_SIZE, 0 }   /* 19: DEFINED_64_OFFSET.  */
+  { 0x7fffffffffffffff, 0x8000000000000000, INST_WORD_SIZE, 0 },   /* 19: DEFINED_64_OFFSET.  */
   { 0x7fffffffffffffff, 0x8000000000000000, INST_WORD_SIZE*2, 0 }   /* 20: DEFINED_64_PC_OFFSET.  */
 };
 
