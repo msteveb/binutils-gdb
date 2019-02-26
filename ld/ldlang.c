@@ -3360,7 +3360,9 @@ open_input_bfds (lang_statement_union_type *s, enum open_bfd_mode mode)
 #endif
 	  break;
 	case lang_assignment_statement_enum:
-	  if (s->assignment_statement.exp->type.node_class != etree_assert)
+	  if (s->assignment_statement.exp->type.node_class != etree_assert
+	      && s->assignment_statement.exp->assign.defsym)
+	    /* This is from a --defsym on the command line.  */
 	    exp_fold_tree_no_dot (s->assignment_statement.exp);
 	  break;
 	default:
@@ -7176,7 +7178,6 @@ lang_process (void)
 
   /* Create a bfd for each input file.  */
   current_target = default_target;
-  lang_statement_iteration++;
   open_input_bfds (statement_list.head, OPEN_BFD_NORMAL);
 
 #ifdef ENABLE_PLUGINS
@@ -7232,7 +7233,6 @@ lang_process (void)
 
 	  /* Rescan archives in case new undefined symbols have appeared.  */
 	  files = file_chain;
-	  lang_statement_iteration++;
 	  open_input_bfds (statement_list.head, OPEN_BFD_RESCAN);
 	  lang_list_remove_tail (&file_chain, &files);
 	  while (files.head != NULL)
