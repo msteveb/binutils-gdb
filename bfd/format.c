@@ -292,7 +292,12 @@ bfd_check_format_matches (bfd *abfd, bfd_format format, char ***matching)
 
       /* Don't check the default target twice.  */
       if (*target == &binary_vec
+#if !BFD_SUPPORTS_PLUGINS
 	  || (!abfd->target_defaulted && *target == save_targ))
+#else
+	  || (!abfd->target_defaulted && *target == save_targ)
+	  || (*target)->match_priority > best_match)
+#endif
 	continue;
 
       /* If we already tried a match, the bfd is modified and may
